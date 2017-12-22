@@ -641,7 +641,7 @@ namespace Microsoft.EntityFrameworkCore
                         .Include(c => c.Items)
                         .Include(c => c.CurrentWeapon)
                         .ToList().Single();
-                    
+
                     Assert.Equal(player.Items.Single(), player.CurrentWeapon);
                 }
             }
@@ -674,6 +674,85 @@ namespace Microsoft.EntityFrameworkCore
 
                     context.ChangeTracker.DetectChanges();
                     Assert.True(context.Entry(player).Collection(p => p.Items).IsModified);
+                }
+            }
+        }
+
+        [Fact]
+        public void Can_include_on_loaded_entity()
+        {
+            using (var testDatabase = SqlServerTestStore.CreateInitialized(DatabaseName))
+            {
+                var options = Fixture.CreateOptions(testDatabase);
+                using (var context = new GameDbContext(options))
+                {
+                    context.Database.EnsureCreated();
+
+                    var player = new PlayerCharacter(new Level
+                    {
+                        Game = new Game()
+                    });
+                    var weapon = new Item
+                    {
+                        Id = 1,
+                        Game = player.Game
+                    };
+                    player.Items.Add(weapon);
+                    player.Items.Add(new Item
+                    {
+                        Id = 2,
+                        Game = player.Game
+                    });
+                    context.Characters.Add(player);
+
+                    context.SaveChanges();
+
+                    player.CurrentWeapon = weapon;
+
+                    context.SaveChanges();
+                }
+
+                using (var context = new GameDbContext(options))
+                {
+                    var player = context.Characters
+                        .Include(p => p.CurrentWeapon)
+                        .Single();
+
+                    Assert.Equal(1, player.Items.Count);
+
+                    context.Attach(player);
+
+                    Assert.Equal(1, player.Items.Count);
+
+                    context.Levels
+                        .Include(l => l.Actors)
+                        .ThenInclude(a => a.Items)
+                        .Load();
+
+                    Assert.Equal(2, player.Items.Count);
+                }
+
+                using (var context = new GameDbContext(options))
+                {
+                    var player = context.Characters
+                        .Include(p => p.CurrentWeapon)
+                        .AsNoTracking()
+                        .Single();
+
+                    Assert.Equal(0, player.Items.Count);
+
+                    context.Attach(player);
+
+                    // Throws
+                    Assert.Equal(1, player.Items.Count);
+
+                    context.Levels
+                        .Include(l => l.Actors)
+                        .ThenInclude(a => a.Items)
+                        .Load();
+
+                    // Throws
+                    Assert.Equal(2, player.Items.Count);
                 }
             }
         }
@@ -731,6 +810,7 @@ namespace Microsoft.EntityFrameworkCore
             public virtual int Id { get; set; }
             public virtual int GameId { get; set; }
             public virtual Game Game { get; set; }
+            public virtual ICollection<Actor> Actors { get; set; } = new HashSet<Actor>();
             public virtual ICollection<Item> Items { get; set; } = new HashSet<Item>();
         }
 
@@ -776,7 +856,7 @@ namespace Microsoft.EntityFrameworkCore
                         {
                             eb.HasKey(a => new { a.GameId, a.Id });
                             eb.HasOne(a => a.Level)
-                                .WithMany()
+                                .WithMany(l => l.Actors)
                                 .HasForeignKey(nameof(Actor.GameId), "LevelId")
                                 .IsRequired();
 
