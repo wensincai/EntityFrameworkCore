@@ -166,6 +166,7 @@ UnicodeDataTypes.StringUnicode ---> [nullable nvarchar] [MaxLength = -1]
                     .AddOptions(builder)
                     .ConfigureWarnings(
                         c => c.Log(RelationalEventId.QueryClientEvaluationWarning)
+                              .Log(RelationalEventId.ValueConversionSqlLiteralWarning)
                             .Log(SqlServerEventId.DecimalTypeDefaultWarning));
         }
     }

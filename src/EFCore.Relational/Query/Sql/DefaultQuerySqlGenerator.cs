@@ -37,6 +37,8 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
         private BooleanExpressionTranslatingVisitor _booleanExpressionTranslatingVisitor;
         private InExpressionValuesExpandingVisitor _inExpressionValuesExpandingVisitor;
 
+        private bool _inEquality;
+
         private static readonly Dictionary<ExpressionType, string> _operatorMap = new Dictionary<ExpressionType, string>
         {
             { ExpressionType.Equal, " = " },
@@ -769,7 +771,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
             => _typeMapping != null
                && (value == null
                    || _typeMapping.ClrType.IsInstanceOfType(value)
-                   || (value.GetType().IsInteger() && _typeMapping.ClrType.IsInteger()))
+                   || value.GetType().IsInteger() && _typeMapping.ClrType.IsInteger())
                 ? _typeMapping
                 : Dependencies.CoreTypeMapper.GetMappingForValue(value);
 
@@ -871,7 +873,7 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
         /// </returns>
         public virtual Expression VisitIn(InExpression inExpression)
         {
-            GenerateIn(inExpression, negated: false);
+            GenerateIn(inExpression);
 
             return inExpression;
         }
@@ -1200,6 +1202,11 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
         {
             Check.NotNull(binaryExpression, nameof(binaryExpression));
 
+            var oldInEquality = _inEquality;
+
+            _inEquality = binaryExpression.NodeType == ExpressionType.Equal
+                          || binaryExpression.NodeType == ExpressionType.NotEqual;
+
             switch (binaryExpression.NodeType)
             {
                 case ExpressionType.Coalesce:
@@ -1259,6 +1266,8 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
 
                     break;
             }
+
+            _inEquality = oldInEquality;
 
             return binaryExpression;
         }
@@ -1585,13 +1594,14 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
             Check.NotNull(constantExpression, nameof(constantExpression));
 
             var value = constantExpression.Value;
+            var typeMapping = GetTypeMapping(value);
 
-            var mapping = GetTypeMapping(value);
+            LogValueConversionWarning(typeMapping);
 
             _relationalCommandBuilder.Append(
                 value == null
                     ? "NULL"
-                    : mapping.GenerateSqlLiteral(value));
+                    : typeMapping.GenerateSqlLiteral(value));
 
             return constantExpression;
         }
@@ -1612,16 +1622,29 @@ namespace Microsoft.EntityFrameworkCore.Query.Sql
             if (_relationalCommandBuilder.ParameterBuilder.Parameters
                 .All(p => p.InvariantName != parameterExpression.Name))
             {
+                var typeMapping = _typeMapping ?? Dependencies.CoreTypeMapper.GetMapping(parameterExpression.Type);
+
+                LogValueConversionWarning(typeMapping);
+
                 _relationalCommandBuilder.AddParameter(
                     parameterExpression.Name,
                     parameterName,
-                    _typeMapping ?? Dependencies.CoreTypeMapper.GetMapping(parameterExpression.Type),
+                    typeMapping,
                     parameterExpression.Type.IsNullableType());
             }
 
             _relationalCommandBuilder.Append(parameterName);
 
             return parameterExpression;
+        }
+
+        private void LogValueConversionWarning(CoreTypeMapping typeMapping)
+        {
+            if (!_inEquality
+                && typeMapping.Converter != null)
+            {
+                Dependencies.Logger.ValueConversionSqlLiteralWarning(typeMapping.ClrType, typeMapping.Converter);
+            }
         }
 
         /// <summary>

@@ -462,4 +462,8 @@
     <value>Executing {batchCommandsCount} update commands as a batch.</value>
     <comment>Debug RelationalEventId.BatchReadyForExecution int</comment>
   </data>
+  <data name="LogValueConversionSqlLiteralWarning" xml:space="preserve">
+    <value>A SQL parameter or literal was generated for the type '{type}' using the ValueConverter '{valueConverter}'. Review the generated SQL for correctness and consider evaluating the target expression in-memory instead.</value>
+    <comment>Warning RelationalEventId.ValueConversionSqlLiteralWarning object object</comment>
+  </data>
 </root>

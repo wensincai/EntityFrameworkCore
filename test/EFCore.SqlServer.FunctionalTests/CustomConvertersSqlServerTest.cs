@@ -6,16 +6,21 @@ using System;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.EntityFrameworkCore
 {
     [SqlServerCondition(SqlServerCondition.IsNotSqlAzure)]
     public class CustomConvertersSqlServerTest : CustomConvertersTestBase<CustomConvertersSqlServerTest.CustomConvertersSqlServerFixture>
     {
-        public CustomConvertersSqlServerTest(CustomConvertersSqlServerFixture fixture)
+        public CustomConvertersSqlServerTest(CustomConvertersSqlServerFixture fixture, ITestOutputHelper testOutputHelper)
             : base(fixture)
         {
+            Fixture.TestSqlLoggerFactory.Clear();
+            Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
         [ConditionalFact]
@@ -155,8 +160,14 @@ User.Id ---> [uniqueidentifier]
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
 
+        public override void Can_insert_and_read_back_with_binary_key()
+        {
+            base.Can_insert_and_read_back_with_binary_key();
+        }
+
         public class CustomConvertersSqlServerFixture : CustomConvertersFixtureBase
         {
+            public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ServiceProvider.GetRequiredService<ILoggerFactory>();
             protected override ITestStoreFactory TestStoreFactory => SqlServerTestStoreFactory.Instance;
 
             public override bool SupportsBinaryKeys => true;
@@ -168,6 +179,7 @@ User.Id ---> [uniqueidentifier]
                     .AddOptions(builder)
                     .ConfigureWarnings(
                         c => c.Log(RelationalEventId.QueryClientEvaluationWarning)
+                            .Log(RelationalEventId.ValueConversionSqlLiteralWarning)
                             .Log(SqlServerEventId.DecimalTypeDefaultWarning));
         }
     }
