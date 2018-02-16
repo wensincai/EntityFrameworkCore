@@ -4243,6 +4243,16 @@ namespace Microsoft.EntityFrameworkCore.Query
                 elementSorter: e => e.Name);
         }
 
+        [ConditionalFact]
+        public virtual void Select_required_navigation_on_derived_type()
+        {
+            using (var ctx = CreateContext())
+            {
+                var query = ctx.LocustLeaders.Select(c => ((LocustCommander)c).DefeatedBy.FullName);
+                var result = query.ToList();
+            }
+        }
+
         protected GearsOfWarContext CreateContext() => Fixture.CreateContext();
 
         protected virtual void ClearLog()

@@ -6049,6 +6049,14 @@ INNER JOIN (
 ORDER BY [t2].[Note], [t2].[FullName]");
         }
 
+        public override void Select_required_navigation_on_derived_type()
+        {
+            base.Select_required_navigation_on_derived_type();
+
+            AssertSql(
+                "");
+        }
+
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

@@ -1000,11 +1000,18 @@ namespace Microsoft.EntityFrameworkCore.Query.ExpressionVisitors.Internal
                 var addNullCheckToOuterKeySelector = optionalNavigationInChain;
 
                 if (!navigation.ForeignKey.IsRequired
-                    || !navigation.IsDependentToPrincipal()
-                    || navigation.DeclaringEntityType.ClrType != querySourceReferenceExpression.Type)
+                    || !navigation.IsDependentToPrincipal())
                 {
                     optionalNavigationInChain = true;
                 }
+
+                //if (!navigation.ForeignKey.IsRequired
+                //    || !navigation.IsDependentToPrincipal()
+                //    || (navigation.DeclaringEntityType.ClrType != querySourceReferenceExpression.Type
+                //        && navigation.DeclaringEntityType.GetAllBaseTypesInclusive().Any(t => t.ClrType == querySourceReferenceExpression.Type)))
+                //{
+                //    optionalNavigationInChain = true;
+                //}
 
                 var targetEntityType = navigation.GetTargetType();
 
